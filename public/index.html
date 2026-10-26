@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>样品柜管理系统</title>
+<style>
+:root{
+  --bg:#f2f4f5;--panel:#fff;--border:#d2d6dc;--text:#23272b;--dim:#5a5f66;
+  --primary:#374754;--a1:#86888a;--a2:#5284b6;--sm:#c64040;
+  --warn:#ed7b00;--danger:#c92c2c;--ok:#358b39;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+
+/* 顶栏 */
+.topbar{background:var(--primary);color:#fff;padding:12px 16px;position:sticky;top:0;z-index:50}
+.topbar h1{font-size:17px;font-weight:500;letter-spacing:1px;display:flex;align-items:center;justify-content:space-between}
+.topbar .stats{display:flex;gap:14px;margin-top:6px;font-size:12px;opacity:.85}
+.topbar .stats b{font-size:15px;margin-left:2px}
+
+/* 操作者名字 */
+.operator-bar{background:#fff8e1;padding:8px 16px;font-size:12px;color:#795548;display:flex;align-items:center;gap:8px;border-bottom:1px solid #ffe082}
+.operator-bar input{border:1px solid #ffcc80;border-radius:4px;padding:4px 8px;font-size:13px;width:100px}
+
+/* 柜子Tab */
+.tabs{display:flex;background:#fff;border-bottom:1px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tab{flex:1;min-width:100px;padding:12px 8px;text-align:center;cursor:pointer;color:#fff;font-size:13px;border:none;font-weight:500;opacity:.55;transition:.15s;white-space:nowrap}
+.tab.active{opacity:1;box-shadow:inset 0 -3px 0 rgba(0,0,0,.2)}
+.tab-a1{background:var(--a1)}.tab-a2{background:var(--a2)}.tab-sm{background:var(--sm)}
+.tab .sub{display:block;font-size:10px;font-weight:400;opacity:.8;margin-top:2px}
+
+/* 搜索 */
+.search-bar{padding:10px 12px;background:#fff;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center}
+.search-bar input{flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;outline:none}
+.search-bar input:focus{border-color:var(--a2)}
+.btn{padding:8px 14px;border:none;border-radius:6px;font-size:13px;cursor:pointer;background:#e8e8e8;color:var(--text)}
+.btn-primary{background:var(--a2);color:#fff}
+.btn-warn{background:var(--danger);color:#fff}
+.btn-sm{padding:5px 10px;font-size:12px}
+
+/* 格子网格 */
+.grid-wrap{padding:10px;overflow-x:auto}
+.grid{display:grid;gap:5px;min-width:fit-content;margin:0 auto}
+.cell{
+  width:72px;height:72px;border:1.5px solid var(--border);border-radius:6px;
+  background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;padding:4px;position:relative;transition:.1s;
+}
+.cell:active{transform:scale(.96)}
+.cell .pos{font-size:10px;color:var(--dim);font-family:monospace}
+.cell .pn{font-size:11px;font-weight:600;margin-top:2px;max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cell .sn{font-size:9px;color:var(--dim);max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cell.empty{background:#f8f9fa}
+.cell.empty .info{color:#c5c9ce;font-size:10px;margin-top:4px}
+.cell.filled-a1{background:#ececec;border-color:var(--a1)}
+.cell.filled-a2{background:#e3edf6;border-color:var(--a2)}
+.cell.filled-sm{background:#f8e5e5;border-color:var(--sm)}
+.cell.loaned::after{content:"借";position:absolute;top:3px;right:3px;background:var(--warn);color:#fff;font-size:9px;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.cell.hl{outline:2px solid #f39c12;outline-offset:1px}
+
+/* Modal */
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:none;align-items:flex-end;justify-content:center}
+.mask.show{display:flex}
+.modal{background:#fff;width:100%;max-width:500px;border-radius:16px 16px 0 0;padding:20px;max-height:85vh;overflow-y:auto}
+.modal h3{font-size:16px;margin-bottom:14px;color:var(--primary)}
+.form-group{margin-bottom:12px}
+.form-group label{display:block;font-size:12px;color:var(--dim);margin-bottom:4px}
+.form-group input,.form-group select,.form-group textarea{
+  width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;font-size:14px;outline:none;font-family:inherit;
+}
+.form-group input:focus,.form-group select:focus{border-color:var(--a2)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modal-actions{display:flex;justify-content:space-between;margin-top:16px;gap:8px}
+.modal-actions .right{display:flex;gap:8px}
+
+/* Toast */
+.toast{position:fixed;bottom:40px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:200;opacity:0;transition:.2s;pointer-events:none}
+.toast.show{opacity:1}
+
+/* 日志面板 */
+.log-panel{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:none;align-items:flex-end;justify-content:center}
+.log-panel.show{display:flex}
+.log-box{background:#fff;width:100%;max-width:500px;border-radius:16px 16px 0 0;padding:20px;max-height:70vh;overflow-y:auto}
+.log-item{padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:12px;color:#444}
+.log-item .time{color:var(--dim);margin-right:6px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>
+    样品柜管理
+    <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff" onclick="showLogs()">操作日志</button>
+  </h1>
+  <div class="stats">
+    <span>总格子<b id="st-total">0</b></span>
+    <span>已用<b id="st-used" style="color:#f1c40f">0</b></span>
+    <span>空余<b id="st-free" style="color:#2ecc71">0</b></span>
+  </div>
+</div>
+
+<div class="operator-bar">
+  我是：<input id="operator" placeholder="姓名" value="">
+  <span style="color:#999">（保存时记录是谁改的）</span>
+</div>
+
+<div class="tabs" id="tabs"></div>
+
+<div class="search-bar">
+  <input type="text" id="search" placeholder="搜索项目号/样品名/负责人..." oninput="render()">
+</div>
+
+<div class="grid-wrap">
+  <div class="grid" id="grid"></div>
+</div>
+
+<!-- 编辑Modal -->
+<div class="mask" id="mask">
+  <div class="modal">
+    <h3 id="m-title">格子信息</h3>
+    <div class="form-group">
+      <label>位置</label>
+      <input id="f-pos" disabled style="background:#f5f5f5">
+    </div>
+    <div class="form-group">
+      <label>项目号 *</label>
+      <input id="f-pn" placeholder="如：PRJ-2026-001">
+    </div>
+    <div class="form-group">
+      <label>样品名称 *</label>
+      <input id="f-sn" placeholder="如：无线充线圈 v2">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>入库日期</label>
+        <input type="date" id="f-date">
+      </div>
+      <div class="form-group">
+        <label>负责人</label>
+        <input id="f-owner" placeholder="姓名">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>状态</label>
+      <select id="f-status">
+        <option value="在柜">在柜</option>
+        <option value="借出">借出</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>备注</label>
+      <textarea id="f-note" rows="2" placeholder="其他说明..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-warn" id="btn-del" style="display:none" onclick="deleteCell()">清除此格</button>
+      <div class="right">
+        <button class="btn" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" onclick="saveCell()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 日志面板 -->
+<div class="log-panel" id="logPanel">
+  <div class="log-box">
+    <h3 style="margin-bottom:10px">操作日志</h3>
+    <div id="logList"></div>
+    <div style="margin-top:14px;text-align:right">
+      <button class="btn" onclick="closeLogs()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const CABS = [
+  {id:'A1', rows:14, cols:5, name:'A1灰柜', cls:'filled-a1'},
+  {id:'A2', rows:25, cols:5, name:'A2蓝柜', cls:'filled-a2'},
+  {id:'小红', rows:10, cols:6, name:'小红柜', cls:'filled-sm'},
+];
+let curCab = 'A1';
+let allData = {};
+let editing = null;
+
+async function load(){
+  const res = await fetch('/api/cells');
+  allData = await res.json();
+  render();
+}
+
+function render(){
+  // Tabs
+  const tabs = document.getElementById('tabs');
+  tabs.innerHTML = '';
+  CABS.forEach(c=>{
+    const used = Object.keys(allData).filter(k=>k.startsWith(c.id+'-') && allData[k].project_no).length;
+    const total = c.rows*c.cols;
+    const t = document.createElement('div');
+    t.className = 'tab tab-'+(c.id==='A1'?'a1':c.id==='A2'?'a2':'sm')+(curCab===c.id?' active':'');
+    t.innerHTML = `${c.name}<span class="sub">${used}/${total}格</span>`;
+    t.onclick = ()=>{curCab=c.id;render()};
+    tabs.appendChild(t);
+  });
+
+  // Stats
+  let total=0, used=0;
+  CABS.forEach(c=>total+=c.rows*c.cols);
+  used = Object.values(allData).filter(d=>d.project_no).length;
+  document.getElementById('st-total').textContent = total;
+  document.getElementById('st-used').textContent = used;
+  document.getElementById('st-free').textContent = total-used;
+
+  // Grid
+  const cab = CABS.find(c=>c.id===curCab);
+  const grid = document.getElementById('grid');
+  grid.style.gridTemplateColumns = `repeat(${cab.cols}, 72px)`;
+  grid.innerHTML = '';
+  const kw = document.getElementById('search').value.trim().toLowerCase();
+
+  for(let r=1;r<=cab.rows;r++){
+    for(let c=1;c<=cab.cols;c++){
+      const key = `${cab.id}-${r}-${c}`;
+      const d = allData[key];
+      const div = document.createElement('div');
+      div.className = 'cell';
+      if(d && d.project_no){
+        div.classList.add(cab.cls);
+        if(d.status==='借出') div.classList.add('loaned');
+        let hl = false;
+        if(kw){
+          const txt = `${d.project_no} ${d.sample_name} ${d.owner||''} ${d.note||''}`.toLowerCase();
+          hl = txt.includes(kw);
+          if(!hl) div.style.opacity = '.3';
+        }
+        if(hl) div.classList.add('hl');
+        div.innerHTML = `<div class="pos">${r}-${c}</div><div class="pn">${esc(d.project_no)}</div><div class="sn">${esc(d.sample_name)}</div>`;
+      }else{
+        div.classList.add('empty');
+        div.innerHTML = `<div class="pos">${r}-${c}</div><div class="info">空位</div>`;
+      }
+      div.onclick = ()=>openModal(cab.id,r,c);
+      grid.appendChild(div);
+    }
+  }
+}
+
+function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+
+function openModal(cab,row,col){
+  editing = {cab,row,col};
+  const d = allData[`${cab}-${row}-${col}`] || {};
+  document.getElementById('m-title').textContent = `${cab}柜  ${row}行-${col}列`;
+  document.getElementById('f-pos').value = `${cab}柜 / ${row}行-${col}列`;
+  document.getElementById('f-pn').value = d.project_no||'';
+  document.getElementById('f-sn').value = d.sample_name||'';
+  document.getElementById('f-date').value = d.in_date||'';
+  document.getElementById('f-owner').value = d.owner||'';
+  document.getElementById('f-status').value = d.status||'在柜';
+  document.getElementById('f-note').value = d.note||'';
+  document.getElementById('btn-del').style.display = d.project_no ? '' : 'none';
+  document.getElementById('mask').classList.add('show');
+}
+function closeModal(){document.getElementById('mask').classList.remove('show');editing=null}
+
+async function saveCell(){
+  const pn = document.getElementById('f-pn').value.trim();
+  const sn = document.getElementById('f-sn').value.trim();
+  if(!pn || !sn){toast('请填写项目号和样品名称');return}
+  const operator = document.getElementById('operator').value.trim() || '匿名';
+  await fetch('/api/cells',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    cabinet:editing.cab, row:editing.row, col:editing.col,
+    project_no:pn, sample_name:sn,
+    in_date:document.getElementById('f-date').value,
+    owner:document.getElementById('f-owner').value.trim(),
+    status:document.getElementById('f-status').value,
+    note:document.getElementById('f-note').value.trim(),
+    operator
+  })});
+  closeModal();
+  await load();
+  toast('已保存');
+}
+
+async function deleteCell(){
+  if(!confirm('确认清除此格？'))return;
+  const operator = document.getElementById('operator').value.trim()||'匿名';
+  await fetch(`/api/cells/${editing.cab}/${editing.row}/${editing.col}?operator=${encodeURIComponent(operator)}`,{method:'DELETE'});
+  closeModal();
+  await load();
+  toast('已清除');
+}
+
+async function showLogs(){
+  const res = await fetch('/api/logs');
+  const logs = await res.json();
+  document.getElementById('logList').innerHTML = logs.map(l=>
+    `<div class="log-item"><span class="time">${l.time}</span><b>${esc(l.operator)}</b> ${esc(l.action)}</div>`
+  ).join('') || '<div style="color:#999;padding:20px;text-align:center">暂无日志</div>';
+  document.getElementById('logPanel').classList.add('show');
+}
+function closeLogs(){document.getElementById('logPanel').classList.remove('show')}
+
+let toastTimer;
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'),1800);
+}
+
+document.getElementById('mask').addEventListener('click',e=>{if(e.target.id==='mask')closeModal()});
+document.getElementById('logPanel').addEventListener('click',e=>{if(e.target.id==='logPanel')closeLogs()});
+
+// 恢复操作者名字
+const savedOp = localStorage.getItem('cab_operator');
+if(savedOp) document.getElementById('operator').value = savedOp;
+document.getElementById('operator').addEventListener('change',e=>localStorage.setItem('cab_operator',e.target.value));
+
+load();
+</script>
+</body>
+</html>
